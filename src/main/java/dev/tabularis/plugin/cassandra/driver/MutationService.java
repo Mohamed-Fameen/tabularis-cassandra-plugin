@@ -47,7 +47,6 @@ public class MutationService {
 
         List<String> quotedColumns = new ArrayList<>();
         List<Object> values = new ArrayList<>();
-        Iterator<Map.Entry<String, JsonNode>> fields = data.fields();
         for (Map.Entry<String, JsonNode> field : data.properties()) {
             ColumnMetadata column = column(meta, field.getKey());
             quotedColumns.add(column.getName().asCql(true));
