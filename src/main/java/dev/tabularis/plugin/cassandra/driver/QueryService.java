@@ -64,8 +64,6 @@ public class QueryService {
 
             long elapsedMs = (System.nanoTime() - start) / 1_000_000;
             return toResultNode(rs.getColumnDefinitions(), rows, safePage, safePageSize, nextState == null, elapsedMs);
-        } catch (RpcException e) {
-            throw e;
         } catch (Exception e) {
             throw RpcException.internal("CQL query failed: " + rootMessage(e), e);
         }
