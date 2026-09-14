@@ -1,0 +1,108 @@
+name: Release
+
+# Builds a native-image binary per platform and publishes them, packaged with
+# the .tabularium manifest, as GitHub Release assets - see plugins/PLUGIN_GUIDE.md
+# "Publishing" in the Tabularis repo and README.md "Publishing a release"
+# here. Triggered by pushing a tag "vX.Y.Z" whose X.Y.Z matches .tabularium's
+# "version" field.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            binary_name: tabularis-cassandra-plugin
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+            binary_name: tabularis-cassandra-plugin
+          - os: macos-13
+            platform: darwin-x64
+            binary_name: tabularis-cassandra-plugin
+          - os: macos-14
+            platform: darwin-arm64
+            binary_name: tabularis-cassandra-plugin
+          - os: windows-latest
+            platform: win-x64
+            binary_name: tabularis-cassandra-plugin.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build native image
+        run: ./gradlew nativeCompile --console=plain
+
+      - name: Package platform zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          STAGE="dist/${{ matrix.platform }}"
+          mkdir -p "$STAGE"
+
+          SRC="build/native/nativeCompile/tabularis-cassandra-plugin"
+          if [ "${{ matrix.platform }}" = "win-x64" ]; then
+            SRC="${SRC}.exe"
+          fi
+          cp "$SRC" "$STAGE/${{ matrix.binary_name }}"
+          chmod +x "$STAGE/${{ matrix.binary_name }}" || true
+
+          # Per-platform manifest: same as the repo root .tabularium, but with
+          # "executable" and "version" adjusted for this build.
+          python3 - "$STAGE/.tabularium" "$VERSION" "${{ matrix.binary_name }}" <<'PY'
+          import json, sys
+          out_path, version, exe = sys.argv[1], sys.argv[2], sys.argv[3]
+          with open(".tabularium") as f:
+              manifest = json.load(f)
+          manifest["version"] = version
+          manifest["executable"] = exe
+          with open(out_path, "w") as f:
+              json.dump(manifest, f, indent=2)
+          PY
+
+          cd dist
+          ZIP_NAME="tabularis-cassandra-plugin-${VERSION}-${{ matrix.platform }}.zip"
+          if command -v zip >/dev/null 2>&1; then
+            (cd "${{ matrix.platform }}" && zip -r "../$ZIP_NAME" .)
+          else
+            powershell -Command "Compress-Archive -Path '${{ matrix.platform }}/*' -DestinationPath '$ZIP_NAME'"
+          fi
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.zip
+            .tabularium
+          generate_release_notes: true

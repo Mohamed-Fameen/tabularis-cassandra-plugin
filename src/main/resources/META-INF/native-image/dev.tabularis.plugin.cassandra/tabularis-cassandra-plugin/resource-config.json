@@ -1,0 +1,10 @@
+{
+  "resources": {
+    "includes": [
+      { "pattern": "\\Qreference.conf\\E" },
+      { "pattern": "\\Qapplication.conf\\E" },
+      { "pattern": "\\Qdatastax-java-driver.conf\\E" },
+      { "pattern": "META-INF/services/.*" }
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+name: Refresh native-image config
+
+# Regenerates src/main/resources/META-INF/native-image/ by running the built
+# JAR under the GraalVM tracing agent against a real Cassandra, exercising
+# every JSON-RPC method (see scripts/exercise-plugin.sh), then opens a PR
+# with whatever changed. Run manually after bumping the DataStax driver or
+# Netty, or on the weekly schedule below to catch drift early.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    services:
+      cassandra:
+        image: cassandra:5.0
+        ports:
+          - 9042:9042
+        options: >-
+          --health-cmd "cqlsh -e 'DESCRIBE KEYSPACES' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install cqlsh
+        run: pip install cqlsh
+
+      - name: Wait for Cassandra
+        run: |
+          for i in $(seq 1 30); do
+            cqlsh 127.0.0.1 9042 -e "DESCRIBE KEYSPACES" && break
+            echo "Waiting for Cassandra ($i/30)..."; sleep 5
+          done
+
+      - name: Build JAR
+        run: ./gradlew jar --console=plain
+
+      - name: Regenerate config under the tracing agent
+        run: ./scripts/exercise-plugin.sh --agent
+        env:
+          CASSANDRA_HOST: 127.0.0.1
+
+      - name: Verify the refreshed config still compiles
+        run: ./gradlew nativeCompile --console=plain
+
+      - name: Open a PR with the refreshed config
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore: refresh native-image config'
+          title: 'chore: refresh native-image config'
+          body: >
+            Automated refresh of src/main/resources/META-INF/native-image/,
+            captured by running scripts/exercise-plugin.sh --agent against a
+            real Cassandra. Please review the diff before merging - this
+            changes what the released native binaries can and can't reflect
+            into.
+          branch: chore/refresh-native-image-config
+          add-paths: src/main/resources/META-INF/native-image/**
