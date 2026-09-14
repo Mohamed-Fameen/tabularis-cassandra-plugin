@@ -1,4 +1,3 @@
-import org.graalvm.buildtools.gradle.dsl.GraalVMExtension
 
 plugins {
     java
@@ -20,13 +19,13 @@ repositories {
 }
 
 val jacksonVersion = "2.17.2"
-val driverVersion = "4.18.1"
+val driverVersion = "4.19.3"
 
 dependencies {
     // DataStax OSS Java driver - CQL native protocol v4, works against both
     // Apache Cassandra and ScyllaDB (ScyllaDB is wire-compatible with Cassandra's
     // CQL protocol). See README "Cassandra vs ScyllaDB" for shard-awareness notes.
-    implementation("com.datastax.oss:java-driver-core:$driverVersion")
+    implementation("org.apache.cassandra:java-driver-core:${driverVersion}")
 
     // JSON-RPC message (de)serialization
     implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
@@ -43,6 +42,10 @@ application {
     mainClass.set("dev.tabularis.plugin.cassandra.Main")
 }
 
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("-Xlint:deprecation")
+}
+
 tasks.test {
     useJUnitPlatform()
 }
@@ -51,7 +54,7 @@ tasks.jar {
     manifest {
         attributes["Main-Class"] = "dev.tabularis.plugin.cassandra.Main"
     }
-    duplicateStrategy = DuplicatesStrategy.EXCLUDE
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
 }
 
@@ -78,5 +81,4 @@ graalvmNative {
     metadataRepository {
         enabled.set(true)
     }
-    toolchainDetection.set(false)
 }

@@ -50,11 +50,11 @@ class QueryServiceTest {
     void setUp() throws RpcException {
         queryService = new QueryService(sessions, mapper);
         params = new ConnectionParams("localhost", 9042, "user", "pw", "ks", false);
-        when(sessions.getOrOpen(any())).thenReturn(session);
     }
 
     @Test
     void sequentialPagingReusesCachedStateInsteadOfReplaying() throws RpcException {
+        when(sessions.getOrOpen(any())).thenReturn(session);
         ResultSet page1 = fakeResultSet(List.of("v1", "v2"), ByteBuffer.wrap(new byte[]{1, 2, 3}));
         ResultSet page2 = fakeResultSet(List.of("v3"), null);
         when(session.execute(any(SimpleStatement.class))).thenReturn(page1).thenReturn(page2);
