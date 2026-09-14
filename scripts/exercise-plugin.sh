@@ -33,20 +33,14 @@ for arg in "$@"; do
 done
 
 echo "==> Seeding scratch keyspace \"$KEYSPACE\" on $CASSANDRA_HOST:$CASSANDRA_PORT"
-cqlsh "$CASSANDRA_HOST" "$CASSANDRA_PORT" -e "
-CREATE KEYSPACE IF NOT EXISTS $KEYSPACE
-  WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
-CREATE TABLE IF NOT EXISTS $KEYSPACE.widgets (
-  id uuid PRIMARY KEY,
-  name text,
-  weight double,
-  tags set<text>,
-  created_at timestamp
-) WITH comment = 'smoke-test table';
-CREATE INDEX IF NOT EXISTS ON $KEYSPACE.widgets (name);
-INSERT INTO $KEYSPACE.widgets (id, name, weight, tags, created_at)
-  VALUES (uuid(), 'seed-row', 1.5, {'a','b'}, toTimestamp(now()));
-"
+cqlsh "$CASSANDRA_HOST" "$CASSANDRA_PORT" -e \
+  "CREATE KEYSPACE IF NOT EXISTS $KEYSPACE WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};"
+cqlsh "$CASSANDRA_HOST" "$CASSANDRA_PORT" -e \
+  "CREATE TABLE IF NOT EXISTS $KEYSPACE.widgets (id uuid PRIMARY KEY, name text, weight double, tags set<text>, created_at timestamp) WITH comment = 'smoke-test table';"
+cqlsh "$CASSANDRA_HOST" "$CASSANDRA_PORT" -e \
+  "CREATE INDEX IF NOT EXISTS ON $KEYSPACE.widgets (name);"
+cqlsh "$CASSANDRA_HOST" "$CASSANDRA_PORT" -e \
+  "INSERT INTO $KEYSPACE.widgets (id, name, weight, tags, created_at) VALUES (uuid(), 'seed-row', 1.5, {'a','b'}, toTimestamp(now()));"
 
 REQUESTS_FILE="$(mktemp)"
 trap 'rm -f "$REQUESTS_FILE"' EXIT
