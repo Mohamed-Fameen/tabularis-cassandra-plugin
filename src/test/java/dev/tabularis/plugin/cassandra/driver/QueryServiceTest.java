@@ -50,7 +50,6 @@ class QueryServiceTest {
     void setUp() throws RpcException {
         queryService = new QueryService(sessions, mapper);
         params = new ConnectionParams("localhost", 9042, "user", "pw", "ks", false);
-        when(sessions.getOrOpen(any())).thenReturn(session);
     }
 
     @Test
