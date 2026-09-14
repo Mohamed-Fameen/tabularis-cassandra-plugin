@@ -20,8 +20,9 @@ jobs:
           --health-retries 30
     steps:
       - uses: actions/checkout@v4
-      - name: Make gradlew executable
-        run: chmod +x gradlew
+
+      - name: Make scripts executable
+        run: chmod +x gradlew scripts/exercise-plugin.sh
 
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
